@@ -21,9 +21,10 @@ func main() {
 	apiCfg := apiConfig{}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", filehandler)))
-	mux.HandleFunc("/healthz", handleHealth)
-	mux.HandleFunc("/metrics", apiCfg.handleHits)
-	mux.HandleFunc("/reset", apiCfg.handleReset)
+	mux.HandleFunc("GET /api/healthz", handleHealth)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handleHits)
+	mux.HandleFunc("POST /admin/reset", apiCfg.handleReset)
+	mux.HandleFunc("POST /api/validate_chirp", handleValidateChirp)
 	server.ListenAndServe()
 }
 
@@ -36,6 +37,8 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func (cfg *apiConfig) handleHits(wr http.ResponseWriter, req *http.Request) {
-	hitresponse := fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())
+	hitresponse := fmt.Sprintf(
+		"<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>", cfg.fileserverHits.Load())
 	wr.Write([]byte(hitresponse))
+	wr.Header().Set("Content-Type", "text/html")
 }
