@@ -1,0 +1,9 @@
+sudo service postgresql start
+sudo -u postgres psql
+password 'postgres'
+
+postgres://postgres:postgres@localhost:5432/chirpy
+postgres://postgres:postgres@localhost:5432/chirpy?sslmode=disable
+
+goose postgres postgres://postgres:postgres@localhost:5432/chirpy up
+goose postgres postgres://postgres:postgres@localhost:5432/chirpy down
