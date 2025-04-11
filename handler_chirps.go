@@ -59,3 +59,46 @@ func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
 		UserID:    chirp.UserID,
 	})
 }
+
+func (cfg *apiConfig) handleChirpsGet(wr http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.db.GetChirps(r.Context())
+	if err != nil {
+		log.Fatalf("error getting chirps from database: %s", err)
+		wr.WriteHeader(500)
+	}
+
+	var chirpList []Chirp
+	for _, val := range chirps {
+		chirpList = append(chirpList, Chirp{
+			ID:        val.ID,
+			CreatedAt: val.CreatedAt,
+			UpdatedAt: val.UpdatedAt,
+			Body:      val.Body,
+			UserID:    val.UserID,
+		})
+	}
+	respondwithJSON(wr, http.StatusOK, chirpList)
+
+}
+
+func (cfg *apiConfig) handleChirpGetSingle(wr http.ResponseWriter, r *http.Request) {
+	idVal, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondwithError(wr, http.StatusBadRequest, "Invalid chirp ID", err)
+		return
+	}
+	chirp, err := cfg.db.GetSingleChirp(r.Context(), idVal)
+	if err != nil {
+		respondwithError(wr, http.StatusBadRequest, "error retrieving chirp", err)
+		return
+	}
+
+	respondwithJSON(wr, http.StatusOK, Chirp{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
+	})
+
+}
