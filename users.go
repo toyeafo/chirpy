@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/toyeafo/chirpy/internal/auth"
+	"github.com/toyeafo/chirpy/internal/database"
 )
 
 type User struct {
@@ -18,7 +20,8 @@ type User struct {
 
 func (cfg *apiConfig) handleCreateUser(wr http.ResponseWriter, req *http.Request) {
 	type req_body struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	req_body_text := req_body{}
@@ -28,7 +31,15 @@ func (cfg *apiConfig) handleCreateUser(wr http.ResponseWriter, req *http.Request
 		return
 	}
 
-	user, err := cfg.db.CreateUser(req.Context(), req_body_text.Email)
+	secret_pwd, err := auth.HashPassword(req_body_text.Password)
+	if err != nil {
+		respondwithError(wr, 500, "error securing password", err)
+	}
+
+	user, err := cfg.db.CreateUser(req.Context(), database.CreateUserParams{
+		Email:          req_body_text.Email,
+		HashedPassword: secret_pwd,
+	})
 	if err != nil {
 		log.Fatalf("error creating user in database: %s", err)
 		wr.WriteHeader(500)
