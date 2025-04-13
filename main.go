@@ -15,6 +15,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	secret         string
 }
 
 func main() {
@@ -22,6 +23,10 @@ func main() {
 	const port = "8080"
 
 	godotenv.Load()
+	secretEnv := os.Getenv("SECRET")
+	if secretEnv == "" {
+		log.Fatal("Secret env variable is not set")
+	}
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB URL not set")
@@ -36,7 +41,11 @@ func main() {
 
 	mux := http.NewServeMux()
 	server := &http.Server{Handler: mux, Addr: ":" + port}
-	apiCfg := &apiConfig{fileserverHits: atomic.Int32{}, db: dbQueries}
+	apiCfg := &apiConfig{
+		fileserverHits: atomic.Int32{},
+		db:             dbQueries,
+		secret:         secretEnv,
+	}
 
 	filehandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(pathRoot))))
 

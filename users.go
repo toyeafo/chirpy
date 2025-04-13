@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -16,6 +15,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token"`
 }
 
 func (cfg *apiConfig) handleCreateUser(wr http.ResponseWriter, req *http.Request) {
@@ -33,7 +33,8 @@ func (cfg *apiConfig) handleCreateUser(wr http.ResponseWriter, req *http.Request
 
 	secret_pwd, err := auth.HashPassword(req_body_text.Password)
 	if err != nil {
-		respondwithError(wr, 500, "error securing password", err)
+		respondwithError(wr, http.StatusInternalServerError, "error securing password", err)
+		return
 	}
 
 	user, err := cfg.db.CreateUser(req.Context(), database.CreateUserParams{
@@ -41,8 +42,8 @@ func (cfg *apiConfig) handleCreateUser(wr http.ResponseWriter, req *http.Request
 		HashedPassword: secret_pwd,
 	})
 	if err != nil {
-		log.Fatalf("error creating user in database: %s", err)
-		wr.WriteHeader(500)
+		respondwithError(wr, http.StatusInternalServerError, "error creating user in database", err)
+		return
 	}
 
 	respondwithJSON(wr, 201, User{

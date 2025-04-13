@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/toyeafo/chirpy/internal/auth"
 	"github.com/toyeafo/chirpy/internal/database"
 )
 
@@ -20,8 +21,8 @@ type Chirp struct {
 
 func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
 	type req_body struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
+		// UserID uuid.UUID `json:"user_id"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -30,6 +31,18 @@ func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondwithError(wr, http.StatusInternalServerError,
 			"Couldn't decode request params", err)
+		return
+	}
+
+	headerToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondwithError(wr, http.StatusUnauthorized, "no valid tokens", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(headerToken, cfg.secret)
+	if err != nil {
+		respondwithError(wr, http.StatusUnauthorized, "invalid token", err)
 		return
 	}
 
@@ -44,11 +57,11 @@ func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   cleaned_body,
-		UserID: req_body_text.UserID,
+		UserID: userID,
 	})
 	if err != nil {
-		log.Fatalf("error creating user in database: %s", err)
-		wr.WriteHeader(500)
+		respondwithError(wr, http.StatusInternalServerError, "Couldn't create chirp", err)
+		return
 	}
 
 	respondwithJSON(wr, 201, Chirp{
