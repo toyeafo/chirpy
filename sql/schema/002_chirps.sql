@@ -4,8 +4,7 @@ create table chirps (
     created_at timestamp not null,
     updated_at timestamp not null,
     body text not null,
-    user_id uuid not null REFERENCES users on DELETE CASCADE,
-    FOREIGN KEY(user_id) REFERENCES users (id)
+    user_id uuid not null REFERENCES users(id) on DELETE CASCADE
 );
 
 -- +goose Down

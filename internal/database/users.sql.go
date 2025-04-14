@@ -7,6 +7,8 @@ package database
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -48,12 +50,52 @@ func (q *Queries) DeleteUsers(ctx context.Context) error {
 	return err
 }
 
+const retrieveUserByID = `-- name: RetrieveUserByID :one
+select id, created_at, updated_at, email, hashed_password from users where id = $1
+`
+
+func (q *Queries) RetrieveUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRowContext(ctx, retrieveUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.HashedPassword,
+	)
+	return i, err
+}
+
 const retrieveUserPwd = `-- name: RetrieveUserPwd :one
 select id, created_at, updated_at, email, hashed_password from users where email = $1
 `
 
 func (q *Queries) RetrieveUserPwd(ctx context.Context, email string) (User, error) {
 	row := q.db.QueryRowContext(ctx, retrieveUserPwd, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.HashedPassword,
+	)
+	return i, err
+}
+
+const updateUsernamePassword = `-- name: UpdateUsernamePassword :one
+update users set email = $1, hashed_password = $2, updated_at = now() where id = $3 returning id, created_at, updated_at, email, hashed_password
+`
+
+type UpdateUsernamePasswordParams struct {
+	Email          string
+	HashedPassword string
+	ID             uuid.UUID
+}
+
+func (q *Queries) UpdateUsernamePassword(ctx context.Context, arg UpdateUsernamePasswordParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUsernamePassword, arg.Email, arg.HashedPassword, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,

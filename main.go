@@ -58,5 +58,9 @@ func main() {
 	mux.HandleFunc("POST /api/users", apiCfg.handleCreateUser)
 	mux.HandleFunc("POST /api/login", apiCfg.handleUserLogin)
 	mux.HandleFunc("POST /api/chirps", apiCfg.handleChirps)
+	mux.HandleFunc("POST /api/refresh", apiCfg.handleTokenRefresh)
+	mux.HandleFunc("POST /api/revoke", apiCfg.handleTokenRevoke)
+	mux.HandleFunc("PUT /api/users", apiCfg.handleUserUpdate)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handleChirpDelete)
 	server.ListenAndServe()
 }

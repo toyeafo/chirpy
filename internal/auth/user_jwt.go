@@ -1,7 +1,8 @@
 package auth
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -12,40 +13,54 @@ type MyCustomClaims struct {
 	jwt.RegisteredClaims
 }
 
+const (
+	// TokenTypeAccess -
+	TokenTypeAccess string = "chirpy"
+)
+
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 
 	claims := MyCustomClaims{
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "chirpy",
+			Issuer:    TokenTypeAccess,
 			Subject:   userID.String(),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString([]byte(tokenSecret))
-	if err != nil {
-		log.Printf("error signing token with string: %s", err)
-		return "", err
-	}
-	return ss, nil
+	return token.SignedString([]byte(tokenSecret))
 }
 
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 
-	token, err := jwt.ParseWithClaims(tokenString, &MyCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(tokenSecret), nil
-	})
+	token, err := jwt.ParseWithClaims(tokenString,
+		&MyCustomClaims{},
+		func(token *jwt.Token) (interface{}, error) { return []byte(tokenSecret), nil },
+	)
 	if err != nil {
-		log.Printf("error parsing claim: %s", err)
 		return uuid.Nil, err
-	} else if claims, ok := token.Claims.(*MyCustomClaims); ok {
-		log.Printf(claims.ID)
-		claimUserID, _ := uuid.Parse(claims.Subject)
-		return claimUserID, nil
-	} else {
-		log.Printf("unknown claims type, cannot proceed")
-		return uuid.Nil, nil
 	}
+
+	userIDString, err := token.Claims.GetSubject()
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	issuer, err := token.Claims.GetIssuer()
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if issuer != TokenTypeAccess {
+		return uuid.Nil, errors.New("invalid issuer")
+	}
+
+	id, err := uuid.Parse(userIDString)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	return id, nil
 }

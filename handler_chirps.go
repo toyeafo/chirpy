@@ -102,7 +102,7 @@ func (cfg *apiConfig) handleChirpGetSingle(wr http.ResponseWriter, r *http.Reque
 	}
 	chirp, err := cfg.db.GetSingleChirp(r.Context(), idVal)
 	if err != nil {
-		respondwithError(wr, http.StatusBadRequest, "error retrieving chirp", err)
+		respondwithError(wr, http.StatusNotFound, "error retrieving chirp", err)
 		return
 	}
 
@@ -114,4 +114,46 @@ func (cfg *apiConfig) handleChirpGetSingle(wr http.ResponseWriter, r *http.Reque
 		UserID:    chirp.UserID,
 	})
 
+}
+
+func (cfg *apiConfig) handleChirpDelete(wr http.ResponseWriter, req *http.Request) {
+	chirpID, err := uuid.Parse(req.PathValue("chirpID"))
+	if err != nil {
+		respondwithError(wr, 401, "Invalid chirp ID", err)
+		return
+	}
+
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondwithError(wr, http.StatusUnauthorized, "missing or invalid access token", err)
+		return
+	}
+
+	user, err := auth.ValidateJWT(accessToken, cfg.secret)
+	if err != nil {
+		respondwithError(wr, 403, "invalid access token", err)
+		return
+	}
+
+	_, err = cfg.db.GetSingleChirpByIDandUser(
+		req.Context(),
+		database.GetSingleChirpByIDandUserParams{
+			UserID: user,
+			ID:     chirpID,
+		},
+	)
+	if err != nil {
+		respondwithError(wr, http.StatusForbidden, "chirp can't be found", err)
+		return
+	}
+
+	err = cfg.db.DeleteChirpByID(req.Context(), database.DeleteChirpByIDParams{
+		UserID: user,
+		ID:     chirpID,
+	})
+	if err != nil {
+		respondwithError(wr, http.StatusUnauthorized, "user not allowed to delete chirp", err)
+		return
+	}
+	wr.WriteHeader(204)
 }
