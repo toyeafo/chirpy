@@ -59,11 +59,12 @@ func (cfg *apiConfig) handleUserLogin(wr http.ResponseWriter, req *http.Request)
 	}
 
 	respondwithJSON(wr, 200, User{
-		ID:           user.ID,
-		CreatedAt:    user.CreatedAt,
-		UpdatedAt:    user.UpdatedAt,
-		Email:        user.Email,
-		Token:        accessToken,
-		RefreshToken: refreshToken,
+		ID:               user.ID,
+		CreatedAt:        user.CreatedAt,
+		UpdatedAt:        user.UpdatedAt,
+		Email:            user.Email,
+		Token:            accessToken,
+		RefreshToken:     refreshToken,
+		ChirpyMembership: user.IsChirpyRed,
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,13 +20,13 @@ type Chirp struct {
 	Body      string    `json:"body"`
 }
 
-func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, req *http.Request) {
 	type req_body struct {
 		Body string `json:"body"`
 		// UserID uuid.UUID `json:"user_id"`
 	}
 
-	decoder := json.NewDecoder(r.Body)
+	decoder := json.NewDecoder(req.Body)
 	req_body_text := req_body{}
 	err := decoder.Decode(&req_body_text)
 	if err != nil {
@@ -34,7 +35,7 @@ func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	headerToken, err := auth.GetBearerToken(r.Header)
+	headerToken, err := auth.GetBearerToken(req.Header)
 	if err != nil {
 		respondwithError(wr, http.StatusUnauthorized, "no valid tokens", err)
 		return
@@ -55,7 +56,7 @@ func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
 
 	cleaned_body := cleanChirp(req_body_text.Body)
 
-	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
+	chirp, err := cfg.db.CreateChirp(req.Context(), database.CreateChirpParams{
 		Body:   cleaned_body,
 		UserID: userID,
 	})
@@ -73,15 +74,30 @@ func (cfg *apiConfig) handleChirps(wr http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (cfg *apiConfig) handleChirpsGet(wr http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.GetChirps(r.Context())
+func (cfg *apiConfig) handleChirpsGet(wr http.ResponseWriter, req *http.Request) {
+	chirps, err := cfg.db.GetChirps(req.Context())
 	if err != nil {
 		log.Fatalf("error getting chirps from database: %s", err)
 		wr.WriteHeader(500)
 	}
 
+	sortBy := req.URL.Query().Get("sort")
+
+	authorID := uuid.Nil
+	authorIDHeader := req.URL.Query().Get("author_id")
+	if authorIDHeader != "" {
+		authorID, err = uuid.Parse(authorIDHeader)
+		if err != nil {
+			respondwithError(wr, http.StatusNotFound, "error parsing authors id", err)
+			return
+		}
+	}
+
 	var chirpList []Chirp
 	for _, val := range chirps {
+		if authorID != uuid.Nil && val.UserID != authorID {
+			continue
+		}
 		chirpList = append(chirpList, Chirp{
 			ID:        val.ID,
 			CreatedAt: val.CreatedAt,
@@ -90,17 +106,23 @@ func (cfg *apiConfig) handleChirpsGet(wr http.ResponseWriter, r *http.Request) {
 			UserID:    val.UserID,
 		})
 	}
+
+	if sortBy == "desc" {
+		sort.Slice(chirpList, func(i, j int) bool {
+			return chirpList[i].CreatedAt.After(chirpList[j].CreatedAt)
+		})
+	}
 	respondwithJSON(wr, http.StatusOK, chirpList)
 
 }
 
-func (cfg *apiConfig) handleChirpGetSingle(wr http.ResponseWriter, r *http.Request) {
-	idVal, err := uuid.Parse(r.PathValue("chirpID"))
+func (cfg *apiConfig) handleChirpGetSingle(wr http.ResponseWriter, req *http.Request) {
+	idVal, err := uuid.Parse(req.PathValue("chirpID"))
 	if err != nil {
 		respondwithError(wr, http.StatusBadRequest, "Invalid chirp ID", err)
 		return
 	}
-	chirp, err := cfg.db.GetSingleChirp(r.Context(), idVal)
+	chirp, err := cfg.db.GetSingleChirp(req.Context(), idVal)
 	if err != nil {
 		respondwithError(wr, http.StatusNotFound, "error retrieving chirp", err)
 		return

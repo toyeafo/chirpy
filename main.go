@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	secret         string
+	polka_key      string
 }
 
 func main() {
@@ -32,6 +33,11 @@ func main() {
 		log.Fatal("DB URL not set")
 	}
 
+	polka_key_env := os.Getenv("POLKA_KEY")
+	if polka_key_env == "" {
+		log.Fatal("Polka key not set")
+	}
+
 	dbConn, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Printf("error opening a connection to the database: %s", err)
@@ -45,6 +51,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
 		secret:         secretEnv,
+		polka_key:      polka_key_env,
 	}
 
 	filehandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(pathRoot))))
@@ -62,5 +69,6 @@ func main() {
 	mux.HandleFunc("POST /api/revoke", apiCfg.handleTokenRevoke)
 	mux.HandleFunc("PUT /api/users", apiCfg.handleUserUpdate)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handleChirpDelete)
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlePolkaWebhook)
 	server.ListenAndServe()
 }

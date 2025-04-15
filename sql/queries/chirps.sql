@@ -18,6 +18,9 @@ delete from chirps where id = $1 and user_id = $2;
 -- name: GetChirps :many
 select * from chirps order by created_at ASC;
 
+-- name: GetChirpsByUser :many
+select * from chirps where user_id= $1 order by created_at ASC;
+
 -- name: GetSingleChirp :one
 select * from chirps where id = $1;
 
